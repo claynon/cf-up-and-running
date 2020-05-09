@@ -18,36 +18,41 @@
                    (.credentialsProvider credentials)
                    (.region Region/US_EAST_2)
                    .build))
-;; create stack
+
 (def stack-name "example-stack")
 
-(def example-stack (-> (CreateStackRequest/builder)
-                       (.stackName stack-name)
-                       (.templateBody (sample-template-json))
-                       .build))
-(.createStack cf-client example-stack)
+;; create stack
+(do
+  (def example-stack (-> (CreateStackRequest/builder)
+                         (.stackName stack-name)
+                         (.templateBody (sample-template-json))
+                         .build))
+  (.createStack cf-client example-stack))
 
 ;; update stack
-(def update-stack (-> (UpdateStackRequest/builder)
-                      (.stackName stack-name)
-                      (.templateBody (sample-template-json))
-                      .build))
-(.updateStack cf-client update-stack)
+(do
+  (def update-stack (-> (UpdateStackRequest/builder)
+                        (.stackName stack-name)
+                        (.templateBody (sample-template-json))
+                        .build))
+  (.updateStack cf-client update-stack))
 
 ;; outputs
-(def stacks-req (-> (DescribeStacksRequest/builder)
-                    (.stackName stack-name)
-                    .build))
-(->> stacks-req
-     (.describeStacks cf-client)
-     .stacks
-     first
-     .outputs
-     (map (fn [output] {(.outputKey output) (.outputValue output)})))
+(do
+  (def stacks-req (-> (DescribeStacksRequest/builder)
+                      (.stackName stack-name)
+                      .build))
+  (->> stacks-req
+       (.describeStacks cf-client)
+       .stacks
+       first
+       .outputs
+       (map (fn [output] {(.outputKey output) (.outputValue output)}))))
 
 
 ;; clean up
-(def delete-stack-req (-> (DeleteStackRequest/builder)
-                          (.stackName stack-name)
-                          .build))
-(.deleteStack cf-client delete-stack-req)
+(do
+  (def delete-stack-req (-> (DeleteStackRequest/builder)
+                            (.stackName stack-name)
+                            .build))
+  (.deleteStack cf-client delete-stack-req))

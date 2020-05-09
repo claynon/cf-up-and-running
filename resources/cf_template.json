@@ -9,20 +9,30 @@
     }
   },
   "Resources" : {
-    "AWSInstance" : {
-      "Type" : "AWS::EC2::Instance",
-      "Properties" : {
-        "ImageId" : "ami-0c55b159cbfafe1f0",
-        "InstanceType" : "t2.micro",
-        "SecurityGroups" : [{"Ref": "AWSSecurityGroup"}],
+    "AWSLaunchConfiguration": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Properties": {
+        "ImageId": "ami-0c55b159cbfafe1f0",
+        "InstanceType": "t2.micro",
+        "SecurityGroups": [{"Ref": "AWSSecurityGroup"}],
         "UserData": {"Fn::Base64": {"Fn::Join": ["", [
           "#!/bin/bash\n",
           "echo \"Hello, World\" > index.html\n",
           "nohup busybox httpd -f -p ", {"Ref": "WebServerPort"}, " &"
-        ]]}},
-        "Tags" : [{
+        ]]}}
+      }
+    },
+    "AWSAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "AvailabilityZones": {"Fn::GetAZs": ""},
+        "LaunchConfigurationName": {"Ref": "AWSLaunchConfiguration"},
+        "MinSize": 2,
+        "MaxSize": 10,
+        "Tags": [{
           "Key": "Name",
-          "Value": "aws-sdk-example-instance"
+          "Value": "aws-asg-example",
+          "PropagateAtLaunch": "true"
         }]
       }
     },
@@ -38,12 +48,6 @@
             "CidrIp": "0.0.0.0/0"
           }]
       }
-    }
-  },
-  "Outputs" : {
-    "PublicIP": {
-      "Description": "The public IP address of the web server",
-      "Value": {"Fn::GetAtt": ["AWSInstance", "PublicIp"]}
     }
   }
 }
