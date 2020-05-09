@@ -2,6 +2,16 @@
   "AWSTemplateFormatVersion" : "2010-09-09",
   "Description" : "A sample template",
   "Parameters": {
+    "VpcId" : {
+      "Type" : "AWS::EC2::VPC::Id",
+      "Description" : "VpcId of your existing Virtual Private Cloud (VPC)",
+      "ConstraintDescription" : "must be the VPC Id of an existing Virtual Private Cloud."
+    },
+    "Subnets" : {
+      "Type" : "List<AWS::EC2::Subnet::Id>",
+      "Description" : "The list of SubnetIds in your Virtual Private Cloud (VPC)",
+      "ConstraintDescription" : "must be a list of at least two existing subnets associated with at least two different availability zones. They should be residing in the selected Virtual Private Cloud."
+    },
     "WebServerPort" : {
       "Type" : "Number",
       "Default" : "8080",
@@ -14,7 +24,7 @@
       "Properties": {
         "ImageId": "ami-0c55b159cbfafe1f0",
         "InstanceType": "t2.micro",
-        "SecurityGroups": [{"Ref": "AWSSecurityGroup"}],
+        "SecurityGroups": [{"Ref": "AWSSecurityGroupEC2"}],
         "UserData": {"Fn::Base64": {"Fn::Join": ["", [
           "#!/bin/bash\n",
           "echo \"Hello, World\" > index.html\n",
@@ -26,6 +36,8 @@
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
         "AvailabilityZones": {"Fn::GetAZs": ""},
+        "HealthCheckGracePeriod": 30,
+        "HealthCheckType": "ELB",
         "LaunchConfigurationName": {"Ref": "AWSLaunchConfiguration"},
         "MinSize": 2,
         "MaxSize": 10,
@@ -33,10 +45,11 @@
           "Key": "Name",
           "Value": "aws-asg-example",
           "PropagateAtLaunch": "true"
-        }]
+        }],
+        "TargetGroupARNs": [{"Ref": "AWSLoadBalancerTargetGroup"}]
       }
     },
-    "AWSSecurityGroup": {
+    "AWSSecurityGroupEC2": {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
           "GroupName" : "aws-sdk-example-instance-sg",
@@ -48,6 +61,87 @@
             "CidrIp": "0.0.0.0/0"
           }]
       }
+    },
+    "AWSLoadBalancer": {
+      "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties" : {
+          "Name": "aws-asg-example",
+          "SecurityGroups": [{"Ref": "AWSSecurityGroupALB"}],
+          "Subnets" : {"Ref": "Subnets"},
+          "Type": "application"
+        }
+    },
+    "AWSLoadBalancerListener": {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+          "DefaultActions" : [{
+            "FixedResponseConfig": {
+              "ContentType": "text/plain",
+              "MessageBody": "404: page not found",
+              "StatusCode": 404
+            },
+            "Type": "fixed-response"
+          }],
+          "LoadBalancerArn": {"Ref": "AWSLoadBalancer"},
+          "Port": 80,
+          "Protocol": "HTTP"
+        }
+    },
+    "AWSSecurityGroupALB": {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+          "GroupName" : "aws-sdk-example-alb-sg",
+          "GroupDescription": "security group of example ALB",
+          "SecurityGroupEgress" : [{
+            "IpProtocol": "-1",
+            "FromPort": 0,
+            "ToPort": 0,
+            "CidrIp": "0.0.0.0/0"
+          }],
+          "SecurityGroupIngress" : [{
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          }],
+          "VpcId": {"Ref": "VpcId"}
+      }
+    },
+    "AWSLoadBalancerTargetGroup": {
+      "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties" : {
+          "HealthCheckEnabled": true,
+          "HealthCheckIntervalSeconds": 15,
+          "HealthCheckPath": "/",
+          "HealthCheckTimeoutSeconds": 3,
+          "HealthyThresholdCount": 2,
+          "Name": "aws-asg-example",
+          "Port": {"Ref": "WebServerPort"},
+          "Protocol" : "HTTP",
+          "UnhealthyThresholdCount": 2,
+          "VpcId": {"Ref": "VpcId"}
+        }
+    },
+    "AWSLoadBalancerListenerRule": {
+      "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
+      "Properties" : {
+          "Actions": [{
+            "TargetGroupArn": {"Ref": "AWSLoadBalancerTargetGroup"},
+            "Type": "forward"
+          }],
+          "Conditions": [{
+            "Field": "path-pattern",
+            "Values": ["*"]
+          }],
+          "ListenerArn": {"Ref": "AWSLoadBalancerListener"},
+          "Priority": 100
+        }
+    }
+  },
+  "Outputs": {
+    "ALBDNSName": {
+      "Description": "The domain name of the load balancer",
+      "Value": {"Fn::GetAtt": ["AWSLoadBalancer", "DNSName"]}
     }
   }
 }

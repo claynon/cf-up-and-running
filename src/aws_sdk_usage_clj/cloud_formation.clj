@@ -1,9 +1,13 @@
-(ns cloud-formation
-  (:require [clojure.java.io :as io])
+(ns aws-sdk-usage-clj.cloud-formation
+  (:require [aws-sdk-usage-clj.ec2 :as ec2]
+            [clojure.java.io :as io]
+            [clojure.string :as string])
   (:import (software.amazon.awssdk.auth.credentials ProfileCredentialsProvider)
            (software.amazon.awssdk.regions Region)
            (software.amazon.awssdk.services.cloudformation CloudFormationClient)
-           (software.amazon.awssdk.services.cloudformation.model CreateStackRequest DeleteStackRequest DescribeStacksRequest UpdateStackRequest)))
+           (software.amazon.awssdk.services.cloudformation.model CreateStackRequest DeleteStackRequest
+                                                                 DescribeStacksRequest Parameter UpdateStackRequest)
+           (software.amazon.awssdk.services.ec2.model DescribeSubnetsRequest DescribeVpcsRequest Filter)))
 
 ;; template
 (defn sample-template-json []
@@ -21,11 +25,40 @@
 
 (def stack-name "example-stack")
 
+(def default-vpc (-> (.describeVpcs ec2/ec2-client (-> (DescribeVpcsRequest/builder)
+                                                       (.filters [(-> (Filter/builder)
+                                                                      (.name "isDefault")
+                                                                      (.values ["true"])
+                                                                      .build)])
+                                                       .build))
+                       .vpcs
+                       first))
+
+(def vpc-id (.vpcId default-vpc))
+
+(def subnets (-> (.describeSubnets ec2/ec2-client (-> (DescribeSubnetsRequest/builder)
+                                                      (.filters [(-> (Filter/builder)
+                                                                     (.name "vpc-id")
+                                                                     (.values [vpc-id])
+                                                                     .build)])
+                                                      .build))
+                 .subnets))
+
+(def parameters [(-> (Parameter/builder)
+                     (.parameterKey "VpcId")
+                     (.parameterValue vpc-id)
+                     .build)
+                 (-> (Parameter/builder)
+                     (.parameterKey "Subnets")
+                     (.parameterValue (string/join "," (map #(.subnetId %) subnets)))
+                     .build)])
+
 ;; create stack
 (do
   (def example-stack (-> (CreateStackRequest/builder)
                          (.stackName stack-name)
                          (.templateBody (sample-template-json))
+                         (.parameters parameters)
                          .build))
   (.createStack cf-client example-stack))
 
@@ -34,6 +67,7 @@
   (def update-stack (-> (UpdateStackRequest/builder)
                         (.stackName stack-name)
                         (.templateBody (sample-template-json))
+                        (.parameters parameters)
                         .build))
   (.updateStack cf-client update-stack))
 
