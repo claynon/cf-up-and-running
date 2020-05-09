@@ -1,0 +1,49 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "A sample template",
+  "Parameters": {
+    "WebServerPort" : {
+      "Type" : "Number",
+      "Default" : "8080",
+      "Description" : "Web server port in which it will serve http requests."
+    }
+  },
+  "Resources" : {
+    "AWSInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "ImageId" : "ami-0c55b159cbfafe1f0",
+        "InstanceType" : "t2.micro",
+        "SecurityGroups" : [{"Ref": "AWSSecurityGroup"}],
+        "UserData": {"Fn::Base64": {"Fn::Join": ["", [
+          "#!/bin/bash\n",
+          "echo \"Hello, World\" > index.html\n",
+          "nohup busybox httpd -f -p ", {"Ref": "WebServerPort"}, " &"
+        ]]}},
+        "Tags" : [{
+          "Key": "Name",
+          "Value": "aws-sdk-example-instance"
+        }]
+      }
+    },
+    "AWSSecurityGroup": {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+          "GroupName" : "aws-sdk-example-instance-sg",
+          "GroupDescription": "security group of example instance",
+          "SecurityGroupIngress" : [{
+            "IpProtocol": "tcp",
+            "FromPort": {"Ref": "WebServerPort"},
+            "ToPort": {"Ref": "WebServerPort"},
+            "CidrIp": "0.0.0.0/0"
+          }]
+      }
+    }
+  },
+  "Outputs" : {
+    "PublicIP": {
+      "Description": "The public IP address of the web server",
+      "Value": {"Fn::GetAtt": ["AWSInstance", "PublicIp"]}
+    }
+  }
+}
