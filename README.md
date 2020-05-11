@@ -1,22 +1,17 @@
 # cf-up-and-running
 
-A Clojure library designed to ... well, that part is up to you.
+Implementation using AWS CloudFormation of the examples from the book [Terraform: Up & Running](https://www.terraformupandrunning.com/)
 
 ## Usage
 
-FIXME
+Create an IAM User, download [awscli](https://aws.amazon.com/cli/) and configure it:
+
+```bash
+$ aws configure
+```
+
+Open a repl and execute the sexp you need from [cf-up-and-running.cloud-formation](src/cf_up_and_running/cloud_formation.clj)
 
 ## License
 
-Copyright © 2020 FIXME
-
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
-
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.
+Copyright © 2020 Claynon Ellert de Souza
