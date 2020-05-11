@@ -1,4 +1,4 @@
-(ns aws-sdk-usage-clj.ec2
+(ns cf-up-and-running.ec2
   (:import (java.util Base64)
            (software.amazon.awssdk.auth.credentials ProfileCredentialsProvider)
            (software.amazon.awssdk.regions Region)

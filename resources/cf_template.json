@@ -19,12 +19,12 @@
     }
   },
   "Resources" : {
-    "AWSLaunchConfiguration": {
+    "CFExampleLaunchConfiguration": {
       "Type": "AWS::AutoScaling::LaunchConfiguration",
       "Properties": {
         "ImageId": "ami-0c55b159cbfafe1f0",
         "InstanceType": "t2.micro",
-        "SecurityGroups": [{"Ref": "AWSSecurityGroupEC2"}],
+        "SecurityGroups": [{"Ref": "CFExampleSecurityGroupEC2"}],
         "UserData": {"Fn::Base64": {"Fn::Join": ["", [
           "#!/bin/bash\n",
           "echo \"Hello, World\" > index.html\n",
@@ -32,27 +32,27 @@
         ]]}}
       }
     },
-    "AWSAutoScalingGroup": {
+    "CFExampleAutoScalingGroup": {
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
         "AvailabilityZones": {"Fn::GetAZs": ""},
         "HealthCheckGracePeriod": 30,
         "HealthCheckType": "ELB",
-        "LaunchConfigurationName": {"Ref": "AWSLaunchConfiguration"},
+        "LaunchConfigurationName": {"Ref": "CFExampleLaunchConfiguration"},
         "MinSize": 2,
         "MaxSize": 10,
         "Tags": [{
           "Key": "Name",
-          "Value": "aws-asg-example",
+          "Value": "cf-asg-example",
           "PropagateAtLaunch": "true"
         }],
-        "TargetGroupARNs": [{"Ref": "AWSLoadBalancerTargetGroup"}]
+        "TargetGroupARNs": [{"Ref": "CFExampleLoadBalancerTargetGroup"}]
       }
     },
-    "AWSSecurityGroupEC2": {
+    "CFExampleSecurityGroupEC2": {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
-          "GroupName" : "aws-sdk-example-instance-sg",
+          "GroupName" : "cf-example-instance-sg",
           "GroupDescription": "security group of example instance",
           "SecurityGroupIngress" : [{
             "IpProtocol": "tcp",
@@ -62,16 +62,16 @@
           }]
       }
     },
-    "AWSLoadBalancer": {
+    "CFExampleLoadBalancer": {
       "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
       "Properties" : {
-          "Name": "aws-asg-example",
-          "SecurityGroups": [{"Ref": "AWSSecurityGroupALB"}],
+          "Name": "cf-asg-example",
+          "SecurityGroups": [{"Ref": "CFExampleSecurityGroupALB"}],
           "Subnets" : {"Ref": "Subnets"},
           "Type": "application"
         }
     },
-    "AWSLoadBalancerListener": {
+    "CFExampleLoadBalancerListener": {
       "Type" : "AWS::ElasticLoadBalancingV2::Listener",
       "Properties" : {
           "DefaultActions" : [{
@@ -82,15 +82,15 @@
             },
             "Type": "fixed-response"
           }],
-          "LoadBalancerArn": {"Ref": "AWSLoadBalancer"},
+          "LoadBalancerArn": {"Ref": "CFExampleLoadBalancer"},
           "Port": 80,
           "Protocol": "HTTP"
         }
     },
-    "AWSSecurityGroupALB": {
+    "CFExampleSecurityGroupALB": {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
-          "GroupName" : "aws-sdk-example-alb-sg",
+          "GroupName" : "cf-example-alb-sg",
           "GroupDescription": "security group of example ALB",
           "SecurityGroupEgress" : [{
             "IpProtocol": "-1",
@@ -107,7 +107,7 @@
           "VpcId": {"Ref": "VpcId"}
       }
     },
-    "AWSLoadBalancerTargetGroup": {
+    "CFExampleLoadBalancerTargetGroup": {
       "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
       "Properties" : {
           "HealthCheckEnabled": true,
@@ -115,25 +115,25 @@
           "HealthCheckPath": "/",
           "HealthCheckTimeoutSeconds": 3,
           "HealthyThresholdCount": 2,
-          "Name": "aws-asg-example",
+          "Name": "cf-asg-example",
           "Port": {"Ref": "WebServerPort"},
           "Protocol" : "HTTP",
           "UnhealthyThresholdCount": 2,
           "VpcId": {"Ref": "VpcId"}
         }
     },
-    "AWSLoadBalancerListenerRule": {
+    "CFExampleLoadBalancerListenerRule": {
       "Type" : "AWS::ElasticLoadBalancingV2::ListenerRule",
       "Properties" : {
           "Actions": [{
-            "TargetGroupArn": {"Ref": "AWSLoadBalancerTargetGroup"},
+            "TargetGroupArn": {"Ref": "CFExampleLoadBalancerTargetGroup"},
             "Type": "forward"
           }],
           "Conditions": [{
             "Field": "path-pattern",
             "Values": ["*"]
           }],
-          "ListenerArn": {"Ref": "AWSLoadBalancerListener"},
+          "ListenerArn": {"Ref": "CFExampleLoadBalancerListener"},
           "Priority": 100
         }
     }
@@ -141,7 +141,7 @@
   "Outputs": {
     "ALBDNSName": {
       "Description": "The domain name of the load balancer",
-      "Value": {"Fn::GetAtt": ["AWSLoadBalancer", "DNSName"]}
+      "Value": {"Fn::GetAtt": ["CFExampleLoadBalancer", "DNSName"]}
     }
   }
 }

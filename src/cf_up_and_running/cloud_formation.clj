@@ -1,5 +1,5 @@
-(ns aws-sdk-usage-clj.cloud-formation
-  (:require [aws-sdk-usage-clj.ec2 :as ec2]
+(ns cf-up-and-running.cloud-formation
+  (:require [cf-up-and-running.ec2 :as ec2]
             [clojure.java.io :as io]
             [clojure.string :as string])
   (:import (software.amazon.awssdk.auth.credentials ProfileCredentialsProvider)
