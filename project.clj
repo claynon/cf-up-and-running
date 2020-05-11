@@ -5,4 +5,4 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [software.amazon.awssdk/aws-sdk-java "2.13.10"]]
-  :repl-options {:init-ns cf-up-and-running.user})
+  :repl-options {:init-ns user})
