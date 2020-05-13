@@ -1,5 +1,5 @@
 (ns cf-up-and-running.ec2
-  (:require [cf-up-and-running.credentials :as credentials]
+  (:require [cf-up-and-running.credentials :as protocol.credentials]
             [com.stuartsierra.component :as component])
   (:import (java.util Base64)
            (software.amazon.awssdk.regions Region)
@@ -20,19 +20,17 @@
 
 ;;TODO move to protocols namespace and renameprotocl methods
 
-(defrecord Ec2ClientABC [credentials region ec2-client]
+(defrecord Ec2ClientABC [ec2-client region credentials]
   component/Lifecycle
   (start [component]
     (if ec2-client
       component
       (assoc component :ec2-client (-> (Ec2Client/builder)
                                        (.region region)
-                                       (.credentialsProvider (:credential credentials)) ;;TODO change this :credential to a protocol
+                                       (.credentialsProvider (protocol.credentials/credentials credentials)) ;;TODO change this :credential to a protocol
                                        .build))))
   (stop [component]
-    (if (not ec2-client)
-      component
-      (assoc component :ec2-client nil)))
+    (assoc component :ec2-client nil))
 
   SecurityGroup
   (create-sg [_ name]
@@ -65,7 +63,7 @@
 
 
   Ec2Instance
-  (create [component name sg-name user-data]
+  (create [_ name sg-name user-data]
     (let [request     (-> (RunInstancesRequest/builder)
                           (.imageId "ami-0c55b159cbfafe1f0")
                           (.instanceType InstanceType/T2_MICRO)
@@ -89,7 +87,7 @@
       (.createTags ec2-client tag-request)
       instance-id))
 
-  (terminate [component instance-id]
+  (terminate [_ instance-id]
     (let [request (-> (TerminateInstancesRequest/builder)
                       (.instanceIds [instance-id])
                       .build)]
@@ -100,7 +98,7 @@
                       :region      region}))
 
 (comment
-  (def credentials (component/start (credentials/new-credentials)))
+  (def credentials (component/start (protocol.credentials/new-credentials)))
   (def ec2-client (component/start (new-ec2-client credentials Region/US_EAST_2)))
 
   (def sg-name "cf-example-sg")

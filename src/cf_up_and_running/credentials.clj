@@ -11,17 +11,15 @@
     (if credentials
       component
       (assoc component :credentials (-> (ProfileCredentialsProvider/builder)
-                                       (.profileName profile-name)
-                                       .build))))
+                                        (.profileName profile-name)
+                                        .build))))
 
   (stop [component]
-    (if (not credentials)
-      component
-      (assoc component :credentials nil)))
+    (assoc component :credentials nil))
 
   CredentialsP
   (credentials [_]
-       credentials))
+    credentials))
 
 (defn new-credentials
   ([] (new-credentials "default"))
