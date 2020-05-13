@@ -18,7 +18,7 @@
       component
       (assoc component :ec2-client (-> (Ec2Client/builder)
                                        (.region region)
-                                       (.credentialsProvider (protocols.credentials/credentials credentials)) ;;TODO change this :credential to a protocol
+                                       (.credentialsProvider (protocols.credentials/credentials credentials))
                                        .build))))
   (stop [component]
     (assoc component :ec2-client nil))
@@ -84,21 +84,21 @@
                       .build)]
       (.terminateInstances ec2-client request))))
 
-(defn new-ec2-client [credentials region] ;;TODO move credentials to be dependency
-  (map->Ec2ClientABC {:credentials credentials
-                      :region      region}))
+(defn new-ec2-client [region]
+  (map->Ec2ClientABC {:region region}))
 
 (comment
   (require '[cf-up-and-running.components.credentials :as cred])
-  (def credentials (component/start (cred/new-credentials)))
-  (def ec2-client (component/start (new-ec2-client credentials Region/US_EAST_2)))
+  (def system (component/start (component/system-map
+                                :credentials (cred/new-credentials)
+                                :ec2-client (component/using (new-ec2-client Region/US_EAST_2) [:credentials]))))
 
   (def sg-name "cf-example-sg")
-  (def sg (protocols.security-group/create-sg ec2-client sg-name))
+  (def sg (protocols.security-group/create-sg (:ec2-client system) sg-name))
 
   (require '[clojure.java.io :as io])
   (def user-data (slurp (io/resource "user_data.sh")))
-  (def instance-id (protocols.ec2/create ec2-client "cf-example-instance" sg-name user-data))
+  (def instance-id (protocols.ec2/create (:ec2-client system) "cf-example-instance" sg-name user-data))
 
-  (protocols.ec2/terminate ec2-client instance-id)
-  (protocols.security-group/terminate-sg ec2-client sg-name))
+  (protocols.ec2/terminate (:ec2-client system) instance-id)
+  (protocols.security-group/terminate-sg (:ec2-client system) sg-name))

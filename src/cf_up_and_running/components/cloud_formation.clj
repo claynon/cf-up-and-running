@@ -1,7 +1,6 @@
 (ns cf-up-and-running.components.cloud-formation
   (:require [cf-up-and-running.protocols.credentials :as protocols.credentials]
             [cf-up-and-running.protocols.cloud-formation :as protocols.cloud-formation]
-            [cf-up-and-running.protocols.ec2 :as protocols.ec2]
             [clojure.string :as string]
             [com.stuartsierra.component :as component])
   (:import(software.amazon.awssdk.regions Region)
@@ -36,7 +35,7 @@
          (.parameterValue (string/join "," (map #(.subnetId %) subnets)))
          .build)]))
 
-(defrecord CloudFormation [cf-client region credentials ec2-client]
+(defrecord CloudFormation [region cf-client credentials ec2-client]
   component/Lifecycle
   (start [component]
     (if cf-client
@@ -85,10 +84,8 @@
            .outputs
            (map (fn [output] {(.outputKey output) (.outputValue output)}))))))
 
-(defn new-cf-client [region credentials ec2-client] ;;TODO move cred and ec2-c as dependencies
-  (map->CloudFormation {:region      region
-                        :credentials credentials
-                        :ec2-client  ec2-client}))
+(defn new-cf-client [region]
+  (map->CloudFormation {:region region}))
 
 (comment
   (require '[cf-up-and-running.components.credentials :as cred])
@@ -97,12 +94,13 @@
   (def region Region/US_EAST_2)
   (def stack-name "example-stack")
 
-  (def credentials (component/start (cred/new-credentials)))
-  (def ec2-client (component/start (ec2/new-ec2-client credentials region)))
-  (def cf-client (component/start (new-cf-client region credentials ec2-client)))
+  (def system (component/start (component/system-map
+                                :cf-client (component/using (new-cf-client region) [:credentials :ec2-client])
+                                :credentials (cred/new-credentials)
+                                :ec2-client (component/using (ec2/new-ec2-client region) [:credentials]))))
 
-  (protocols.cloud-formation/create cf-client stack-name (slurp (io/resource "cf_template.json")))
-  (protocols.cloud-formation/update cf-client stack-name (slurp (io/resource "cf_template.json")))
-  (protocols.cloud-formation/delete cf-client stack-name)
+  (protocols.cloud-formation/create (:cf-client system) stack-name (slurp (io/resource "cf_template.json")))
+  (protocols.cloud-formation/update (:cf-client system) stack-name (slurp (io/resource "cf_template.json")))
+  (protocols.cloud-formation/delete (:cf-client system) stack-name)
 
-  (protocols.cloud-formation/outputs cf-client stack-name))
+  (protocols.cloud-formation/outputs (:cf-client system) stack-name))
