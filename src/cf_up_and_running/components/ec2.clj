@@ -1,5 +1,7 @@
-(ns cf-up-and-running.ec2
-  (:require [cf-up-and-running.credentials :as protocol.credentials]
+(ns cf-up-and-running.components.ec2
+  (:require [cf-up-and-running.protocols.credentials :as protocols.credentials]
+            [cf-up-and-running.protocols.ec2 :as protocols.ec2]
+            [cf-up-and-running.protocols.security-group :as protocols.security-group]
             [com.stuartsierra.component :as component])
   (:import (java.util Base64)
            (software.amazon.awssdk.regions Region)
@@ -9,17 +11,6 @@
                                                       IpPermission IpRange RunInstancesRequest Tag
                                                       TerminateInstancesRequest)))
 
-
-(defprotocol Ec2Instance
-  (create [component name sg-name user-data])
-  (terminate [component instance-id]))
-
-(defprotocol SecurityGroup
-  (create-sg [component name])
-  (terminate-sg [component name]))
-
-;;TODO move to protocols namespace and renameprotocl methods
-
 (defrecord Ec2ClientABC [ec2-client region credentials]
   component/Lifecycle
   (start [component]
@@ -27,12 +18,12 @@
       component
       (assoc component :ec2-client (-> (Ec2Client/builder)
                                        (.region region)
-                                       (.credentialsProvider (protocol.credentials/credentials credentials)) ;;TODO change this :credential to a protocol
+                                       (.credentialsProvider (protocols.credentials/credentials credentials)) ;;TODO change this :credential to a protocol
                                        .build))))
   (stop [component]
     (assoc component :ec2-client nil))
 
-  SecurityGroup
+  protocols.security-group/SecurityGroup
   (create-sg [_ name]
     (let [create-request (-> (CreateSecurityGroupRequest/builder)
                              (.groupName name)
@@ -62,7 +53,7 @@
       (.deleteSecurityGroup ec2-client delete-request)))
 
 
-  Ec2Instance
+  protocols.ec2/Ec2Instance
   (create [_ name sg-name user-data]
     (let [request     (-> (RunInstancesRequest/builder)
                           (.imageId "ami-0c55b159cbfafe1f0")
@@ -98,15 +89,16 @@
                       :region      region}))
 
 (comment
-  (def credentials (component/start (protocol.credentials/new-credentials)))
+  (require '[cf-up-and-running.components.credentials :as cred])
+  (def credentials (component/start (cred/new-credentials)))
   (def ec2-client (component/start (new-ec2-client credentials Region/US_EAST_2)))
 
   (def sg-name "cf-example-sg")
-  (def sg (create-sg ec2-client sg-name))
+  (def sg (protocols.security-group/create-sg ec2-client sg-name))
 
   (require '[clojure.java.io :as io])
   (def user-data (slurp (io/resource "user_data.sh")))
-  (def instance-id (create ec2-client "cf-example-instance" sg-name user-data))
+  (def instance-id (protocols.ec2/create ec2-client "cf-example-instance" sg-name user-data))
 
-  (terminate ec2-client instance-id)
-  (terminate-sg ec2-client sg-name))
+  (protocols.ec2/terminate ec2-client instance-id)
+  (protocols.security-group/terminate-sg ec2-client sg-name))

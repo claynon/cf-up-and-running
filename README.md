@@ -10,7 +10,9 @@ Create an IAM User, download [awscli](https://aws.amazon.com/cli/) and configure
 $ aws configure
 ```
 
-Open a repl and execute the sexp you need from [cf-up-and-running.cloud-formation](src/cf_up_and_running/cloud_formation.clj)
+There are examples on how to use each component in the namespaces under cf-up-and-running.components.
+ Eg: [cf-up-and-running.components.cloud-formation](src/cf_up_and_running/components/cloud_formation.clj).
+ The examples are in the end of the files.
 
 ## License
 

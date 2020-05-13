@@ -1,9 +1,7 @@
-(ns cf-up-and-running.credentials
-  (:require [com.stuartsierra.component :as component])
+(ns cf-up-and-running.components.credentials
+  (:require [com.stuartsierra.component :as component]
+            [cf-up-and-running.protocols.credentials :as protocols.credentials])
   (:import (software.amazon.awssdk.auth.credentials ProfileCredentialsProvider)))
-
-(defprotocol CredentialsP
-  (credentials [component]));;TODO extract
 
 (defrecord Credentials [profile-name credentials]
   component/Lifecycle
@@ -17,7 +15,7 @@
   (stop [component]
     (assoc component :credentials nil))
 
-  CredentialsP
+  protocols.credentials/Credentials
   (credentials [_]
     credentials))
 
