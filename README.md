@@ -1,6 +1,10 @@
 # cf-up-and-running
 
-Implementation using AWS CloudFormation of the examples from the book [Terraform: Up & Running](https://www.terraformupandrunning.com/)
+Implementation using AWS CloudFormation of the examples from the book
+ [Terraform: Up & Running](https://www.terraformupandrunning.com/)
+
+This is not a generalized AWS library. There are a bunch of fixed arguments. If you use this lib be mindful that you
+ should change these arguments according to your needs.
 
 Even though the focus of this lib is to play around with CF there is code interaction with other AWS services, eg: EC2.
  There are components interacting directly with them. This is because some of the examples I'm doing using CF and the
