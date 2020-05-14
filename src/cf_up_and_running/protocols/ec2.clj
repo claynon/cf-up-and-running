@@ -3,3 +3,6 @@
 (defprotocol Ec2Instance
   (create [component name sg-name user-data])
   (terminate [component instance-id]))
+
+(defprotocol Ec2Client
+  (client [component]))

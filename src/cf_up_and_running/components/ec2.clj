@@ -11,7 +11,7 @@
                                                       IpPermission IpRange RunInstancesRequest Tag
                                                       TerminateInstancesRequest)))
 
-(defrecord Ec2ClientABC [ec2-client region credentials]
+(defrecord Ec2ClientABC [ec2-client region credentials] ;;TODO change name
   component/Lifecycle
   (start [component]
     (if ec2-client
@@ -22,6 +22,10 @@
                                        .build))))
   (stop [component]
     (assoc component :ec2-client nil))
+
+  protocols.ec2/Ec2Client
+  (client [_]
+    ec2-client)
 
   protocols.security-group/SecurityGroup
   (create-sg [_ name]

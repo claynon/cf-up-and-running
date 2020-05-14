@@ -1,41 +1,27 @@
 (ns cf-up-and-running.components.cloud-formation
   (:require [cf-up-and-running.protocols.credentials :as protocols.credentials]
             [cf-up-and-running.protocols.cloud-formation :as protocols.cloud-formation]
+            [cf-up-and-running.protocols.network :as protocols.network]
             [clojure.string :as string]
             [com.stuartsierra.component :as component])
-  (:import(software.amazon.awssdk.regions Region)
+  (:import (software.amazon.awssdk.regions Region)
            (software.amazon.awssdk.services.cloudformation CloudFormationClient)
            (software.amazon.awssdk.services.cloudformation.model CreateStackRequest DeleteStackRequest
-                                                                 DescribeStacksRequest Parameter UpdateStackRequest)
-           (software.amazon.awssdk.services.ec2.model DescribeSubnetsRequest DescribeVpcsRequest Filter)))
+                                                                 DescribeStacksRequest Parameter UpdateStackRequest)))
 
-(defn- parameters [ec2-component]
-  (let [vpc-id  (-> (.describeVpcs (:ec2-client ec2-component) (-> (DescribeVpcsRequest/builder)
-                                                                   (.filters [(-> (Filter/builder)
-                                                                                  (.name "isDefault")
-                                                                                  (.values ["true"])
-                                                                                  .build)])
-                                                                   .build))
-                    .vpcs
-                    first
-                    .vpcId)
-        subnets (-> (.describeSubnets (:ec2-client ec2-component) (-> (DescribeSubnetsRequest/builder)
-                                                                      (.filters [(-> (Filter/builder)
-                                                                                     (.name "vpc-id")
-                                                                                     (.values [vpc-id])
-                                                                                     .build)])
-                                                                      .build))
-                    .subnets)];;TODO extract this to a network component
+(defn- parameters [network]
+  (let [vpc-id     (protocols.network/vpc-id network)
+        subnet-ids (protocols.network/subnet-ids network vpc-id)]
     [(-> (Parameter/builder)
          (.parameterKey "VpcId")
          (.parameterValue vpc-id)
          .build)
      (-> (Parameter/builder)
          (.parameterKey "Subnets")
-         (.parameterValue (string/join "," (map #(.subnetId %) subnets)))
+         (.parameterValue (string/join "," subnet-ids))
          .build)]))
 
-(defrecord CloudFormation [region cf-client credentials ec2-client]
+(defrecord CloudFormation [region cf-client credentials ec2-client network]
   component/Lifecycle
   (start [component]
     (if cf-client
@@ -50,7 +36,7 @@
 
   protocols.cloud-formation/CloudFormationStack
   (create [_ stack-name template]
-    (let [parameters (parameters ec2-client)
+    (let [parameters (parameters network)
           request    (-> (CreateStackRequest/builder)
                          (.stackName stack-name)
                          (.templateBody template)
@@ -59,7 +45,7 @@
       (.createStack cf-client request)))
 
   (update [_ stack-name template]
-    (let [parameters (parameters ec2-client)
+    (let [parameters (parameters network)
           request    (-> (UpdateStackRequest/builder)
                          (.stackName stack-name)
                          (.templateBody template)
@@ -90,14 +76,16 @@
 (comment
   (require '[cf-up-and-running.components.credentials :as cred])
   (require '[cf-up-and-running.components.ec2 :as ec2])
+  (require '[cf-up-and-running.components.network :as network])
   (require '[clojure.java.io :as io])
   (def region Region/US_EAST_2)
   (def stack-name "example-stack")
 
   (def system (component/start (component/system-map
-                                :cf-client (component/using (new-cf-client region) [:credentials :ec2-client])
+                                :cf-client (component/using (new-cf-client region) [:credentials :ec2-client :network])
                                 :credentials (cred/new-credentials)
-                                :ec2-client (component/using (ec2/new-ec2-client region) [:credentials]))))
+                                :ec2-client (component/using (ec2/new-ec2-client region) [:credentials])
+                                :network (component/using (network/new-network) [:ec2-client]))))
 
   (protocols.cloud-formation/create (:cf-client system) stack-name (slurp (io/resource "cf_template.json")))
   (protocols.cloud-formation/update (:cf-client system) stack-name (slurp (io/resource "cf_template.json")))
