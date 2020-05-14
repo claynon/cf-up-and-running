@@ -5,5 +5,7 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [com.stuartsierra/component "1.0.0"]
-                 [software.amazon.awssdk/aws-sdk-java "2.13.10"]]
+
+                 [software.amazon.awssdk/cloudformation "2.13.10"]
+                 [software.amazon.awssdk/ec2 "2.13.10"]]
   :repl-options {:init-ns user})
