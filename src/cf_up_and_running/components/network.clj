@@ -50,5 +50,5 @@
                                 :credentials (cred/new-credentials)
                                 :ec2-client (component/using (ec2/new-ec2-client region) [:credentials]))))
 
-  (def vpc-id (vpc-id (:network system)))
-  (def subnet-ids (subnet-ids (:network system) vpc-id)))
+  (def vpc-id (protocols.network/vpc-id (:network system)))
+  (def subnet-ids (protocols.network/subnet-ids (:network system) vpc-id)))
