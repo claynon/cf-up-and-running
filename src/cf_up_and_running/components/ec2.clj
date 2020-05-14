@@ -11,7 +11,7 @@
                                                       IpPermission IpRange RunInstancesRequest Tag
                                                       TerminateInstancesRequest)))
 
-(defrecord Ec2ClientABC [ec2-client region credentials] ;;TODO change name
+(defrecord Ec2 [ec2-client region credentials]
   component/Lifecycle
   (start [component]
     (if ec2-client
@@ -89,7 +89,7 @@
       (.terminateInstances ec2-client request))))
 
 (defn new-ec2-client [region]
-  (map->Ec2ClientABC {:region region}))
+  (map->Ec2 {:region region}))
 
 (comment
   (require '[cf-up-and-running.components.credentials :as cred])

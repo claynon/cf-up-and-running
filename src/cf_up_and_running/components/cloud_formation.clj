@@ -6,8 +6,9 @@
             [com.stuartsierra.component :as component])
   (:import (software.amazon.awssdk.regions Region)
            (software.amazon.awssdk.services.cloudformation CloudFormationClient)
-           (software.amazon.awssdk.services.cloudformation.model CreateStackRequest DeleteStackRequest
-                                                                 DescribeStacksRequest Parameter UpdateStackRequest)))
+           (software.amazon.awssdk.services.cloudformation.model CloudFormationException CreateStackRequest
+                                                                 DeleteStackRequest DescribeStacksRequest Parameter
+                                                                 UpdateStackRequest)))
 
 (defn- parameters [network]
   (let [vpc-id     (protocols.network/vpc-id network)
@@ -20,6 +21,22 @@
          (.parameterKey "Subnets")
          (.parameterValue (string/join "," subnet-ids))
          .build)]))
+
+(defn- stack [cf-client stack-name]
+  (let [stacks-req (-> (DescribeStacksRequest/builder)
+                       (.stackName stack-name)
+                       .build)]
+    (->> stacks-req
+         (.describeStacks cf-client)
+         .stacks
+         first)))
+
+(defn- stack-exists? [cf-client stack-name]
+  (try
+    (stack cf-client stack-name)
+    true
+    (catch CloudFormationException _
+      false)))
 
 (defrecord CloudFormation [region cf-client credentials ec2-client network]
   component/Lifecycle
@@ -35,23 +52,18 @@
     (assoc component :cf-client nil))
 
   protocols.cloud-formation/CloudFormationStack
-  (create [_ stack-name template]
-    (let [parameters (parameters network)
-          request    (-> (CreateStackRequest/builder)
-                         (.stackName stack-name)
-                         (.templateBody template)
-                         (.parameters parameters)
-                         .build)]
-      (.createStack cf-client request)))
-
-  (update [_ stack-name template]
-    (let [parameters (parameters network)
-          request    (-> (UpdateStackRequest/builder)
-                         (.stackName stack-name)
-                         (.templateBody template)
-                         (.parameters parameters)
-                         .build)]
-      (.updateStack cf-client request)))
+  (upsert [_ stack-name template]
+    (let [parameters      (parameters network)
+          stack-exists?   (stack-exists? cf-client stack-name)
+          request-builder (if stack-exists? (UpdateStackRequest/builder) (CreateStackRequest/builder))
+          request         (-> request-builder
+                              (.stackName stack-name)
+                              (.templateBody template)
+                              (.parameters parameters)
+                              .build)]
+      (if stack-exists?
+        (.updateStack cf-client request)
+        (.createStack cf-client request))))
 
   (delete [_ stack-name]
     (let [request (-> (DeleteStackRequest/builder)
@@ -60,15 +72,10 @@
       (.deleteStack cf-client request)))
 
   (outputs [_ stack-name]
-    (let [stacks-req (-> (DescribeStacksRequest/builder)
-                         (.stackName stack-name)
-                         .build)]
-      (->> stacks-req
-           (.describeStacks cf-client)
-           .stacks
-           first
-           .outputs
-           (map (fn [output] {(.outputKey output) (.outputValue output)}))))))
+    (->> (stack cf-client stack-name)
+         .outputs
+         (map (fn [output] [(.outputKey output) (.outputValue output)]))
+         (into {}))))
 
 (defn new-cf-client [region]
   (map->CloudFormation {:region region}))
@@ -86,9 +93,9 @@
                                 :credentials (cred/new-credentials)
                                 :ec2-client (component/using (ec2/new-ec2-client region) [:credentials])
                                 :network (component/using (network/new-network) [:ec2-client]))))
+  (def cf-client (:cf-client system))
 
-  (protocols.cloud-formation/create (:cf-client system) stack-name (slurp (io/resource "cf_template.json")))
-  (protocols.cloud-formation/update (:cf-client system) stack-name (slurp (io/resource "cf_template.json")))
-  (protocols.cloud-formation/delete (:cf-client system) stack-name)
+  (protocols.cloud-formation/upsert cf-client stack-name (slurp (io/resource "cf_template.json")))
+  (protocols.cloud-formation/delete cf-client stack-name)
 
-  (protocols.cloud-formation/outputs (:cf-client system) stack-name))
+  (protocols.cloud-formation/outputs cf-client stack-name))
