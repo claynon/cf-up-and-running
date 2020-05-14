@@ -2,6 +2,10 @@
 
 Implementation using AWS CloudFormation of the examples from the book [Terraform: Up & Running](https://www.terraformupandrunning.com/)
 
+Even though the focus of this lib is to play around with CF there is code interaction with other AWS services, eg: EC2.
+ There are components interacting directly with them. This is because some of the examples I'm doing using CF and the
+ java sdk of the service directly.
+
 ## Usage
 
 Create an IAM User, download [awscli](https://aws.amazon.com/cli/) and configure it:
