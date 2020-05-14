@@ -2,6 +2,7 @@
   (:require [cf-up-and-running.protocols.credentials :as protocols.credentials]
             [cf-up-and-running.protocols.cloud-formation :as protocols.cloud-formation]
             [cf-up-and-running.protocols.network :as protocols.network]
+            [clojure.java.io :as io]
             [clojure.string :as string]
             [com.stuartsierra.component :as component])
   (:import (software.amazon.awssdk.regions Region)
@@ -10,17 +11,12 @@
                                                                  DeleteStackRequest DescribeStacksRequest Parameter
                                                                  UpdateStackRequest)))
 
-(defn- parameters [network]
-  (let [vpc-id     (protocols.network/vpc-id network)
-        subnet-ids (protocols.network/subnet-ids network vpc-id)]
-    [(-> (Parameter/builder)
-         (.parameterKey "VpcId")
-         (.parameterValue vpc-id)
-         .build)
-     (-> (Parameter/builder)
-         (.parameterKey "Subnets")
-         (.parameterValue (string/join "," subnet-ids))
-         .build)]))
+(defn- parameters [parameters-map]
+  (map (fn [[k v]] (-> (Parameter/builder)
+                       (.parameterKey k)
+                       (.parameterValue v)
+                       .build))
+       parameters-map))
 
 (defn- stack [cf-client stack-name]
   (let [stacks-req (-> (DescribeStacksRequest/builder)
@@ -38,6 +34,15 @@
     (catch CloudFormationException _
       false)))
 
+(let [oi "abc"]
+  (string/replace "alo ${abd} asdf" (str "${" oi "}") "alo"))
+
+(defn- interpolate-user-data [user-data params]
+  (reduce (fn [user-data' [k v]]
+            (string/replace user-data' (str "${" k "}") v))
+          user-data
+          params))
+
 (defrecord CloudFormation [region cf-client credentials ec2-client network]
   component/Lifecycle
   (start [component]
@@ -52,14 +57,15 @@
     (assoc component :cf-client nil))
 
   protocols.cloud-formation/CloudFormationStack
-  (upsert [_ stack-name template]
-    (let [parameters      (parameters network)
+  (upsert [_ stack-name template parameters-map]
+    (let [user-data       (interpolate-user-data (slurp (io/resource "user_data_cf.sh")) parameters-map)
+          params          (parameters (assoc parameters-map "UserData" user-data))
           stack-exists?   (stack-exists? cf-client stack-name)
           request-builder (if stack-exists? (UpdateStackRequest/builder) (CreateStackRequest/builder))
           request         (-> request-builder
                               (.stackName stack-name)
                               (.templateBody template)
-                              (.parameters parameters)
+                              (.parameters params)
                               .build)]
       (if stack-exists?
         (.updateStack cf-client request)
@@ -84,7 +90,6 @@
   (require '[cf-up-and-running.components.credentials :as cred])
   (require '[cf-up-and-running.components.ec2 :as ec2])
   (require '[cf-up-and-running.components.network :as network])
-  (require '[clojure.java.io :as io])
   (def region Region/US_EAST_2)
   (def stack-name "example-stack")
 
@@ -95,7 +100,14 @@
                                 :network (component/using (network/new-network) [:ec2-client]))))
   (def cf-client (:cf-client system))
 
-  (protocols.cloud-formation/upsert cf-client stack-name (slurp (io/resource "cf_template.json")))
+  (let [vpc-id     (protocols.network/vpc-id (:network system))
+        subnet-ids (protocols.network/subnet-ids (:network system) vpc-id)]
+    (protocols.cloud-formation/upsert cf-client
+                                      stack-name
+                                      (slurp (io/resource "cf_template.json"))
+                                      {"VpcId"         vpc-id
+                                       "Subnets"       (string/join "," subnet-ids)
+                                       "WebServerPort" "8080"}))
   (protocols.cloud-formation/delete cf-client stack-name)
 
   (protocols.cloud-formation/outputs cf-client stack-name))

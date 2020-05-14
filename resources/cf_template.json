@@ -12,6 +12,10 @@
       "Description" : "The list of SubnetIds in your Virtual Private Cloud (VPC)",
       "ConstraintDescription" : "must be a list of at least two existing subnets associated with at least two different availability zones. They should be residing in the selected Virtual Private Cloud."
     },
+    "UserData" : {
+      "Type" : "String",
+      "Description" : "User data script that will run when the instances are created"
+    },
     "WebServerPort" : {
       "Type" : "Number",
       "Default" : "8080",
@@ -25,11 +29,7 @@
         "ImageId": "ami-0c55b159cbfafe1f0",
         "InstanceType": "t2.micro",
         "SecurityGroups": [{"Ref": "CFExampleSecurityGroupEC2"}],
-        "UserData": {"Fn::Base64": {"Fn::Join": ["", [
-          "#!/bin/bash\n",
-          "echo \"Hello, World\" > index.html\n",
-          "nohup busybox httpd -f -p ", {"Ref": "WebServerPort"}, " &"
-        ]]}}
+        "UserData": {"Fn::Base64": {"Ref": "UserData"}}
       }
     },
     "CFExampleAutoScalingGroup": {
